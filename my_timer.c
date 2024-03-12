@@ -18,7 +18,7 @@ MODULE_VERSION("1.0");
 static struct proc_dir_entry* proc_entry;
 static char msg[BUF_LEN];
 static int procfs_buf_len;
-//struct timespec64 last_time;
+struct timespec64 last_time;
 
 static ssize_t procfile_read(struct file *file, char __user *ubuf, size_t count, loff_t *ppos) {
     printk(KERN_INFO "proc_read\n");
@@ -32,6 +32,12 @@ static ssize_t procfile_read(struct file *file, char __user *ubuf, size_t count,
 
     //if (elapsed_time > 0)
        // procfs_buf_len += snprintf(msg + procfs_buf_len, sizeof(msg) - procfs_buf_len, "elapsed time: %lld.%09lld\n", elapsed_time / NSEC_PER_SEC, elapsed_time % NSEC_PER_SEC);
+	procfs_buf_len = snprintf(msg, sizeof(msg), "current time: %ld.%09ld\n", (long)current_time.tv_sec, current_time.tv_nsec);
+
+    u64 elapsed_time = ktime_to_ns(ktime_sub(ktime_set(current_time.tv_sec, current_time.tv_nsec), ktime_set(last_time.tv_sec,last_time.tv_nsec)));
+	
+	if(elapsed_time > 0)
+		procfs_buf_len += snprintf(msg + procfs_buf_len, sizeof(msg) - procfs_buf_len, "elapsed time: %lld.%09lld\n", elapsed_time / NSEC_PER_SEC, elapsed_time % NSEC_PER_SEC);
 
     if (*ppos > 0 || count < procfs_buf_len)
         return 0;
@@ -41,7 +47,7 @@ static ssize_t procfile_read(struct file *file, char __user *ubuf, size_t count,
 
     *ppos = *ppos + procfs_buf_len;
 
-    //last_time =  current_time;
+    last_time =  current_time;
 
     printk(KERN_INFO "gave to user: %s", msg);
 
@@ -59,7 +65,7 @@ static int __init timer_init(void){
                 return -ENOMEM;
         }
         else printk(KERN_INFO "Successfully created /proc/my_timer entry/n");
-        //ktime_get_real_ts64(&last_time);
+        ktime_get_real_ts64(&last_time);
 
         return 0;
 };
