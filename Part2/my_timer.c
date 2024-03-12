@@ -6,11 +6,11 @@
 #include <linux/ktime.h>
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Osher Steel");
+MODULE_AUTHOR("Group #");
 MODULE_DESCRIPTION("Timer Module");
 MODULE_VERSION("1.0");
 
-#define ENTRY_NAME "timer"
+#define ENTRY_NAME "my_timer"
 #define PERMS 0666
 #define PARENT NULL
 
@@ -28,16 +28,10 @@ static ssize_t procfile_read(struct file *file, char __user *ubuf, size_t count,
 
     procfs_buf_len = snprintf(msg, sizeof(msg), "current time: %ld.%09ld\n",(long) current_time.tv_sec, current_time.tv_nsec);
 
-    //u64 elapsed_time = ktime_to_ns(ktime_sub(ktime_set(current_time.tv_sec, current_time.tv_nsec), ktime_set(last_time.tv_sec,last_time.tv_nsec))) > 0;
-
-    //if (elapsed_time > 0)
-       // procfs_buf_len += snprintf(msg + procfs_buf_len, sizeof(msg) - procfs_buf_len, "elapsed time: %lld.%09lld\n", elapsed_time / NSEC_PER_SEC, elapsed_time % NSEC_PER_SEC);
-	procfs_buf_len = snprintf(msg, sizeof(msg), "current time: %ld.%09ld\n", (long)current_time.tv_sec, current_time.tv_nsec);
-
     u64 elapsed_time = ktime_to_ns(ktime_sub(ktime_set(current_time.tv_sec, current_time.tv_nsec), ktime_set(last_time.tv_sec,last_time.tv_nsec)));
-	
-	if(elapsed_time > 0)
-		procfs_buf_len += snprintf(msg + procfs_buf_len, sizeof(msg) - procfs_buf_len, "elapsed time: %lld.%09lld\n", elapsed_time / NSEC_PER_SEC, elapsed_time % NSEC_PER_SEC);
+
+    if(elapsed_time > 0)
+                procfs_buf_len += snprintf(msg + procfs_buf_len, sizeof(msg) - procfs_buf_len, "elapsed time: %lld.%09lld\n", elapsed_time / NSEC_PER>
 
     if (*ppos > 0 || count < procfs_buf_len)
         return 0;
