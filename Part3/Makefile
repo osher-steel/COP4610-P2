@@ -1,5 +1,5 @@
 ...
 
-obj-y := syscalls.o
+obj-y := syscalls/
 
 ...
