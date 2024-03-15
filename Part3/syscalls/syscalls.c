@@ -11,7 +11,7 @@ EXPORT_SYMBOL(STUB_two_nums);
 
 SYSCALL_DEFINE0(start_elevator) {
   printk(KERN_NOTICE "Inside SYSCALL_DEFINE0 block. %s", __FUNCTION__);
-  if(STUB_init_call != NULL)
+  if(STUB_start_elevator != NULL)
     return STUB_start_elevator();
   else
     return -ENOSYS;
@@ -19,7 +19,7 @@ SYSCALL_DEFINE0(start_elevator) {
 
 SYSCALL_DEFINE0(stop_elevator) {
   printk(KERN_NOTICE "Inside SYSCALL_DEFINE0 block. %s", __FUNCTION__);
-  if(STUB_init_call != NULL)
+  if(STUB_stop_elevator != NULL)
     return STUB_stop_elevator();
   else
     return -ENOSYS;
@@ -27,7 +27,7 @@ SYSCALL_DEFINE0(stop_elevator) {
 
 SYSCALL_DEFINE3(issue_request, int, start_floor, int, destination_floor, int, type) {
   printk(KERN_NOTICE "Inside SYSCALL_DEFINE2 block. %s: Your int are %d, %d, %d\n", __FUNCTION__, start_floor, destination_floor, type);
-  if(STUB_two_nums != NULL)
+  if(STUB_issue_request != NULL)
     return STUB_issue_request(start_floor, destination_floor, type);
   else
     return -ENOSYS;
