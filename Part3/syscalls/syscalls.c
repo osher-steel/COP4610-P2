@@ -6,8 +6,10 @@
 int (*STUB_start_elevator)(void) = NULL;
 int (*STUB_issue_request)(int,int,int) = NULL;
 int (*STUB_stop_elevator)(void) = NULL;
-EXPORT_SYMBOL(STUB_init_call);
-EXPORT_SYMBOL(STUB_two_nums);
+
+EXPORT_SYMBOL(STUB_start_elevator);
+EXPORT_SYMBOL(STUB_stop_elevator);
+EXPORT_SYMBOL(STUB_issue request);
 
 SYSCALL_DEFINE0(start_elevator) {
   printk(KERN_NOTICE "Inside SYSCALL_DEFINE0 block. %s", __FUNCTION__);
