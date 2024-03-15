@@ -9,7 +9,7 @@ int (*STUB_stop_elevator)(void) = NULL;
 
 EXPORT_SYMBOL(STUB_start_elevator);
 EXPORT_SYMBOL(STUB_stop_elevator);
-EXPORT_SYMBOL(STUB_issue request);
+EXPORT_SYMBOL(STUB_issue_request);
 
 SYSCALL_DEFINE0(start_elevator) {
   printk(KERN_NOTICE "Inside SYSCALL_DEFINE0 block. %s", __FUNCTION__);
