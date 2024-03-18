@@ -79,7 +79,7 @@ check_floor(int floor_num){
             dropOff(passenger);
     
     loop through floor[floor_num] list:
-        if(!stop == current_load + passenger.weight <= MAX_LOAD)
+        if(!stop && current_load + passenger.weight <= MAX_LOAD)
             load(passenger);
 }
 
@@ -123,7 +123,7 @@ write_to_proc(){
     loop through each floor:
         sum = 0
         loop through each item in list:
-            f[i].append(passenger) (in form type/destination)
+            f[i].append(passenger)
             sum ++
         
         waiting[i] = sum
@@ -134,11 +134,11 @@ write_to_proc(){
     Current Load : {load}
 
     [{star[5]}] Floor 6 : {waiting[5]} {f[5]} 
-    [{star[4]}] Floor 5 : {waiting[5]} {f[4]} 
-    [{star[3]}] Floor 4 : {waiting[5]} {f[3]} 
-    [{star[2]}] Floor 3 : {waiting[5]} {f[2]} 
-    [{star[1]}] Floor 2 : {waiting[5]} {f[1]} 
-    [{star[0]}] Floor 1 : {waiting[5]} {f[0]} 
+    [{star[4]}] Floor 5 : {waiting[4]} {f[4]} 
+    [{star[3]}] Floor 4 : {waiting[3]} {f[3]} 
+    [{star[2]}] Floor 3 : {waiting[2]} {f[2]} 
+    [{star[1]}] Floor 2 : {waiting[1]} {f[1]} 
+    [{star[0]}] Floor 1 : {waiting[0]} {f[0]} 
 
     Number of passengers : {num_passengers}
     Number of passengers waiting : {num_waiting}
