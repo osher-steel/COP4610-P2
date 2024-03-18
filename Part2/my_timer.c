@@ -1,6 +1,6 @@
-#include <linux/init.h>
-#include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/init.h>
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
 #include <linux/ktime.h>
@@ -31,7 +31,7 @@ static ssize_t procfile_read(struct file *file, char __user *ubuf, size_t count,
     u64 elapsed_time = ktime_to_ns(ktime_sub(ktime_set(current_time.tv_sec, current_time.tv_nsec), ktime_set(last_time.tv_sec,last_time.tv_nsec)));
 
     if(elapsed_time > 0)
-                procfs_buf_len += snprintf(msg + procfs_buf_len, sizeof(msg) - procfs_buf_len, "elapsed time: %lld.%09lld\n", elapsed_time / NSEC_PER>
+        procfs_buf_len += snprintf(msg + procfs_buf_len, sizeof(msg) - procfs_buf_len, "elapsed time: %lld.%09lld\n", elapsed_time / NSEC_PER_SEC);
 
     if (*ppos > 0 || count < procfs_buf_len)
         return 0;
