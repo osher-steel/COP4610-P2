@@ -8,14 +8,14 @@
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Group #");
-MODULE_DESCRIPTION("Timer Module");
+MODULE_DESCRIPTION("Elevator Module");
 MODULE_VERSION("1.0");
 
 #define ENTRY_NAME "elevator"
 #define PERMS 0644
 #define PARENT NULL
 
-#define NUM_FLOORS 6
+#define NUM_FLOORS 5
 #define MAX_LOAD 700
 #define MAX_PASSENGERS 5
 #define PART_TIME 0 
@@ -48,7 +48,7 @@ typedef struct passenger{
 struct Floor{
     int num_waiting_floor;
     struct list_head passengers_waiting;
-}
+};
 
 static struct proc_dir_entry* elevator_entry;
 
@@ -77,7 +77,7 @@ int start_elevator(void){
 }
 
 int issue_request(int start_floor, int destination_floor, int type){
-    if(turn_off || elevator.state == OFFLINE || start_floor < 1 || start_floor > 6 || destination_floor < 1 || destination_floor > 6 )
+    if(turn_off || elevator.state == OFFLINE || start_floor < 1 || start_floor > NUM_FLOORS || destination_floor < 1 || destination_floor > NUM_FLOORS )
         return 1;
 
     int weight;
@@ -120,17 +120,21 @@ int stop_elevator(void){
 }
 
 // This should be an infinite loop run by the thread
-void run_elevator(){
+void run_elevator(void){
     if(elevator.state != OFFLINE){
         if(passengers_waiting > 0){
+            if(elevator.state == IDLE)
+                getNewDestination();
+            
             service_floor();
             moveElevator();
         }
-        else
-            elevator.state = IDLE;
-
-        if(elevator.state == IDLE && turn_off)
-            elevator.state = OFFLINE;
+        else{
+            if(turn_off)
+                elevator.state = OFFLINE;
+            else
+                elevator.state = IDLE;
+        }
     }
 }
 
@@ -260,7 +264,32 @@ static int __init elevator_init(void){
 }
 
 static void __exit elevator_exit(void){
-    // Free all passengers still waiting in each floor
+    struct list_head *temp;
+	struct list_head *dummy;
+	Passenger *p;
+
+    if(num_passengers > 0){
+        list_for_each_safe(temp, dummy, &elevator.passengers_on_board){
+            p = list_entry(temp, Passenger, list);
+
+            list_del(temp);	
+            kfree(p);
+        }
+    }
+
+    if(num_waiting > 0){
+        for(int i=0; i< NUM_FLOORS; i++){
+            if(!list_empty(&floors[elevator.current_floor])){
+                list_for_each_safe(temp, dummy, &floors[elevator.current_floor]){
+                    p = list_entry(temp, Passenger, list);
+
+                    list_del(temp);	
+                    kfree(p);
+                }
+            }
+        }
+    }
+
     proc_remove(proc_entry);
 }
 
