@@ -4,6 +4,7 @@
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
 #include <linux/ktime.h>
+#include <linux/list.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Group #");
@@ -13,6 +14,15 @@ MODULE_VERSION("1.0");
 #define ENTRY_NAME "elevator"
 #define PERMS 0644
 #define PARENT NULL
+
+#define NUM_FLOORS 6
+#define MAX_LOAD 700
+#define MAX_PASSENGERS 5
+#define PART_TIME 0 
+#define LAWYER 1
+#define BOSS 2
+#define VISITOR 3
+
 
 int start_elevator(void);                                                          
 int issue_request(int start_floor, int destination_floor, int type);               
@@ -24,200 +34,232 @@ extern int (*STUB_stop_elevator)(void);
 
 enum state {OFFLINE, IDLE, LOADING, UP, DOWN};
 
-struct Passenger{
-    int destination, weight, start;
+struct Elevator{
+    enum state;
+    int current_load, current_floor, current_destination;
+    struct list_head passengers_on_board;
 };
 
+typedef struct passenger{
+    int destination, weight, start;
+    struct list_head list;
+} Passenger;
 
-enum state;
-int current_floor;
-int current_load;
-int current_destination;
+struct Floor{
+    int num_waiting_floor;
+    struct list_head passengers_waiting;
+}
 
-int num_passengers;
-int num_waiting;
-int num_serviced;
+static struct proc_dir_entry* elevator_entry;
 
-bool active;
-bool turn_off;
+struct Elevator elevator;
+struct Floor floors[6];
 
+static int num_passengers;
+static int num_waiting;
+static int num_serviced;
 
-// List [6] Floor  (Array of 6 floors which each contains a list of passengers waiting)
-// List Elevator (List that contains passengers in elevator)
-
-extern int (*STUB_start_elevator)(void);
-extern int (*STUB_issue_request)(int,int,int);
-extern int (*STUB_stop_elevator)(void);
+static bool turn_off;
 
 int start_elevator(void){
-    if(state == OFFLINE){
+    if(elevator.state != OFFLINE){
         return 1;
     }
 
-    current_floor = 1;
-    current_load = 0;
-    state = IDLE
-    return 0;
+    elevator.current_floor = 1;
+    elevator.current_load = 0;
+    elevator.state = IDLE;
 
+    num_passengers = 0;
+    num_serviced = 0;
+    num_waiting = 0;
+
+    return 0;
     // add -ERRORNUM and -ENOMEM
 }
 
 int issue_request(int start_floor, int destination_floor, int type){
+    if(start_floor < 1 || start_floor > 6 || destination_floor < 1 || destination_floor > 6 )
+        return 1;
+
     int weight;
 
     switch(type){
-        case 0:
+        case PART_TIME:
             weight = 10;
             break;
-        case 1:
+        case LAWYER:
             weight = 15;
             break;
-        case 2:
+        case BOSS:
             weight = 20;
             break;
-        case 3:
+        case VISITOR:
             weight = 5;
             break;
+        case default:
+            return 1;
     }
 
-    Passenger passenger = Passenger(start,dest,weight);
-    // floor[start].add(p);
 
-    current_waiting ++;
-};        
+    // Initialize passenger object
+    struct Passenger *passenger = kmalloc(sizeof(struct Passenger), GFP_KERNEL);
+    passenger.start = start_floor + 1;
+    passenger.destination = destination_floor - 1;
+    passenger.weight = weight;
+
+    // Add passenger to floor list
+    list_add_tail(&passenger->list, &floors[start_floor - 1].passengers_waiting);
+
+    num_waiting ++;
+}      
 
 int stop_elevator(void){
+    if(turn_off == true)
+        return 1;
+    
     turn_off = true;
+    return 0;
 }
+
+// void run_elevator(){
+//     switch(elevator.state){
+//         case OFFLINE:
+//             return;
+//         case IDLE:
+//             if(passengers_waiting >0){
+//                 moveElevator();
+//             }
+//     }
+// }
 
 void moveElevator(void){
-    if(current_destination == 0){
-        getNewDestination();
-    }
-
-    if(current_floor < current_destination){
-        goUp()
-    }
-    else if(current_floor > current_destination){
-        doDown()
-    }
-    
-    check_floor()
-
-    if(current_floor == current_destination){
-        if(num_waiting > 0){
-            getNewDestination()
-        }
+    if(elevator.current_floor == elevator.current_destination){
+        if(num_waiting > 0)
+            getNewDestination();
         else
-            State = IDLE
+            State = IDLE;
     }
-
-
-};
-
+    else if(elevator.current_floor < elevator.current_destination){
+        // WAIT 2 SECs
+        elevator.state = UP;
+        elevator.current_floor += 1;
+    }
+    else if(elevator.current_floor > elevator.current_destination){
+        // WAIT 2 SECs
+        elevator.state = DOWN
+        elevator.current_floor -= 1;
+    }
+}
 
 void getNewDestination(void){
-    // Loop through floors:
-        // if floor is not empty:
-            current_destination = floor_num;
-                return;
-
-    state = IDLE;
+    // Loop through floors starting at the current floor and going up
+    for(int i=0; i< NUM_FLOORS; i++){
+        // If the floor has passengers waiting make it new destination floor
+        if(!list_empty(&floors[(i+elevator.current_floor) % NUM_FLOORS].passengers_waiting)){
+            elevator.current_destination = (i+elevator.current_floor) % NUM_FLOORS;
+            return;
+        }
+    }
 }
 
+void service_floor(void){
+	struct list_head *temp;
+	struct list_head *dummy;
+	Passenger *p;
 
-void goUp(void){
-    state = UP
-    current_floor += 1
-};
+    // Check if any passenger on board is at destination
+    if(!list_empty(&elevator.passengers_on_board)){
+        list_for_each_safe(temp, dummy, &elevator.passengers_on_board){
+            p = list_entry(temp, Passenger, list);
+	
+            if(p.destination == elevator.current_floor){
+                // WAIT 1 SEC
 
-void goDown(void){
-    state = DOWN
-    current_floor -= 1
-};
+                elevator.state = LOADING;
 
-void check_floor(void){
-    // loop through elevator list:
-        if(passenger.destination == current_floor)
-            dropOff(passenger);
-    
-    // loop through floor[current_floor] list:
-        if(!stop && current_load + passenger.weight <= MAX_LOAD)
-            load(passenger);
-};
+                num_passengers--;
+                num_serviced++;
+                elevator.current_load -= p.weight;
 
-void dropOff(Passenger passenger){
-    State = LOADING;
-    num_passengers--;
-    num_serviced++;
-    current_load -= passenger.weight;
-    // delete passenger from elevator list
-}
+                list_del(temp);	
+                kfree(p);
+            }
+        }
 
-void load(Passenger passenger){
-    STATE = LOADING;
-    num_waiting --;
-    num_passengers ++;
-    current_load += passenger.weight
-    // delete passenger from floor list
-    // add passenger to elevator list
-}
-
-// write_to_proc(){
-//     generate text and then write to proc
-
-//     char star[6];
-//     for(i = 0; i<5; i++)
-//         if(i == current_floor)
-//             star[i] = '*'
-//         else
-//             star[i] = ' '
-    
-//     string f[6]
-//     string waiting[6]
-
-//     loop through each floor:
-//         sum = 0
-//         loop through each item in list:
-//             f[i].append(passenger)
-//             sum ++
         
-//         waiting[i] = sum
+    }
 
-//     text = f" 
-//     Elevator State :{state} \n
-//     Current Floor : {current_floor} \n
-//     Current Load : {load}
+    // Check if there are any passengers waiting to board at current floor
+    if(!turn_off && !list_empty(&floors[elevator.current_floor])){
+        list_for_each_safe(temp, dummy, &floors[elevator.current_floor]){
+            p = list_entry(temp, Passenger, list);
 
-//     [{star[5]}] Floor 6 : {waiting[5]} {f[5]} 
-//     [{star[4]}] Floor 5 : {waiting[4]} {f[4]} 
-//     [{star[3]}] Floor 4 : {waiting[3]} {f[3]} 
-//     [{star[2]}] Floor 3 : {waiting[2]} {f[2]} 
-//     [{star[1]}] Floor 2 : {waiting[1]} {f[1]} 
-//     [{star[0]}] Floor 1 : {waiting[0]} {f[0]} 
+            if(num_passengers < 5 && elevator.current_load + p.weight <= MAX_LOAD){
+                // WAIT 1 SEC
+                elevator.state = LOADING;
 
-//     Number of passengers : {num_passengers}
-//     Number of passengers waiting : {num_waiting}
-//     Number of passengers serviced : {num_serviced}"
-    
-//     write text to procfile
+                num_waiting --;
+                num_passengers ++;
+                elevator.current_load += passenger.weight
+                
+                // Add passenger to elevator list
+                list_add_tail(&p->list, &elevator);
 
-// }
+                // Remove passenger from floor list
+                list_del(temp);	
+                kfree(p);
+            }
+        }
+    }
+}
+
+
+static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count, loff_t *ppos){
+    char buf[10000];
+    int len = 0;
+
+    len = sprintf(buf, "Elevator state: \n");
+    len += sprintf(buf + len, "Current floor: \n");
+    len += sprintf(buf + len, "Current load: \n");
+    len += sprintf(buf + len, "Elevator status: \n");
+    // Finish the rest.
+
+    return simple_read_from_buffer(ubuf, count, ppos, buf, len);
+}
+
+static const struct proc_ops elevator_fops = {
+    .proc_read = elevator_read,
+};
 
 static int __init elevator_init(void){
     STUB_start_elevator = start_elevator;
     STUB_issue_request = issue_request;
     STUB_stop_elevator = stop_elevator;
     
-    proc_entry = proc_create(ENTRY_NAME, PERMS, PARENT, &procfile_fops);
+
+    elevator_entry = proc_create(ENTRY_NAME, PERMS, PARENT, &elevator_fops);
+    if (!elevator_entry) {
+        return -ENOMEM;
+    }
 
     state = OFFLINE;
 
-};
+    elevator.state = OFFLINE;
+    INIT_LIST_HEADS(&elevator.passengers_on_board);
+
+    for(int i=0; i<NUM_FLOORS; i++){
+        floors[i].num_waiting_floor = 0;
+        INIT_LIST_HEADS(&floors[i].passengers_waiting);
+    }
+
+    return 0;
+}
 
 static void __exit elevator_exit(void){
-        proc_remove(proc_entry);
-};
+    // Free all passengers still waiting in each floor
+    proc_remove(proc_entry);
+}
 
 module_init(elevator_init);
 module_exit(elevator_exit);
