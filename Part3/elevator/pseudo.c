@@ -139,7 +139,6 @@ write_to_proc(){
     Number of passengers : {num_passengers}
     Number of passengers waiting : {num_waiting}
     Number of passengers serviced : {num_serviced}
-    "
     
     write text to procfile
 

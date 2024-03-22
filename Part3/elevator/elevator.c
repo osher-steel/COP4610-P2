@@ -70,16 +70,14 @@ int start_elevator(void){
     elevator.current_load = 0;
     elevator.state = IDLE;
 
-    num_passengers = 0;
-    num_serviced = 0;
-    num_waiting = 0;
+    turn_off = false;
 
     return 0;
     // add -ERRORNUM and -ENOMEM
 }
 
 int issue_request(int start_floor, int destination_floor, int type){
-    if(start_floor < 1 || start_floor > 6 || destination_floor < 1 || destination_floor > 6 )
+    if(turn_off || elevator.state == OFFLINE || start_floor < 1 || start_floor > 6 || destination_floor < 1 || destination_floor > 6 )
         return 1;
 
     int weight;
@@ -101,7 +99,6 @@ int issue_request(int start_floor, int destination_floor, int type){
             return 1;
     }
 
-
     // Initialize passenger object
     struct Passenger *passenger = kmalloc(sizeof(struct Passenger), GFP_KERNEL);
     passenger.start = start_floor + 1;
@@ -115,30 +112,31 @@ int issue_request(int start_floor, int destination_floor, int type){
 }      
 
 int stop_elevator(void){
-    if(turn_off == true)
+    if(elevator.state == OFFLINE || turn_off)
         return 1;
     
     turn_off = true;
     return 0;
 }
 
-// void run_elevator(){
-//     switch(elevator.state){
-//         case OFFLINE:
-//             return;
-//         case IDLE:
-//             if(passengers_waiting >0){
-//                 moveElevator();
-//             }
-//     }
-// }
+// This should be an infinite loop run by the thread
+void run_elevator(){
+    if(elevator.state != OFFLINE){
+        if(passengers_waiting > 0){
+            service_floor();
+            moveElevator();
+        }
+        else
+            elevator.state = IDLE;
+
+        if(elevator.state == IDLE && turn_off)
+            elevator.state = OFFLINE;
+    }
+}
 
 void moveElevator(void){
     if(elevator.current_floor == elevator.current_destination){
-        if(num_waiting > 0)
             getNewDestination();
-        else
-            State = IDLE;
     }
     else if(elevator.current_floor < elevator.current_destination){
         // WAIT 2 SECs
@@ -252,6 +250,11 @@ static int __init elevator_init(void){
         floors[i].num_waiting_floor = 0;
         INIT_LIST_HEADS(&floors[i].passengers_waiting);
     }
+
+
+    num_passengers = 0;
+    num_serviced = 0;
+    num_waiting = 0;
 
     return 0;
 }
