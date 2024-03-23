@@ -5,6 +5,8 @@
 #include <linux/uaccess.h>
 #include <linux/ktime.h>
 #include <linux/list.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Group #");
@@ -38,6 +40,7 @@ struct Elevator{
     enum state;
     int current_load, current_floor, current_destination;
     struct list_head passengers_on_board;
+    struct task_struct *kthread;
 };
 
 typedef struct passenger{
@@ -119,22 +122,24 @@ int stop_elevator(void){
     return 0;
 }
 
-// This should be an infinite loop run by the thread
-void run_elevator(void){
-    if(elevator.state != OFFLINE){
-        if(passengers_waiting > 0){
-            if(elevator.state == IDLE)
-                getNewDestination();
-            
-            service_floor();
-            moveElevator();
-        }
-        else{
-            if(turn_off)
-                elevator.state = OFFLINE;
-            else
-                elevator.state = IDLE;
-        }
+
+void elevator_run(void){
+    while(!kthread_should_stop()){
+        if(elevator.state != OFFLINE){
+            if(passengers_waiting > 0){
+                if(elevator.state == IDLE)
+                    getNewDestination();
+                
+                service_floor();
+                moveElevator();
+            }
+            else{
+                if(turn_off)
+                    elevator.state = OFFLINE;
+                else
+                    elevator.state = IDLE;
+            }
+    }
     }
 }
 
@@ -143,12 +148,12 @@ void moveElevator(void){
             getNewDestination();
     }
     else if(elevator.current_floor < elevator.current_destination){
-        // WAIT 2 SECs
+        ssleep(2);
         elevator.state = UP;
         elevator.current_floor += 1;
     }
     else if(elevator.current_floor > elevator.current_destination){
-        // WAIT 2 SECs
+        ssleep(2);
         elevator.state = DOWN
         elevator.current_floor -= 1;
     }
@@ -176,7 +181,7 @@ void service_floor(void){
             p = list_entry(temp, Passenger, list);
 	
             if(p.destination == elevator.current_floor){
-                // WAIT 1 SEC
+                ssleep(1);
 
                 elevator.state = LOADING;
 
@@ -198,7 +203,7 @@ void service_floor(void){
             p = list_entry(temp, Passenger, list);
 
             if(num_passengers < 5 && elevator.current_load + p.weight <= MAX_LOAD){
-                // WAIT 1 SEC
+                ssleep(1);
                 elevator.state = LOADING;
 
                 num_waiting --;
@@ -245,10 +250,10 @@ static int __init elevator_init(void){
         return -ENOMEM;
     }
 
-    state = OFFLINE;
-
     elevator.state = OFFLINE;
     INIT_LIST_HEADS(&elevator.passengers_on_board);
+
+    elevator->thread = kthread_run(elevator_run, parm, "elevator thread", parm->id);
 
     for(int i=0; i<NUM_FLOORS; i++){
         floors[i].num_waiting_floor = 0;
@@ -264,6 +269,8 @@ static int __init elevator_init(void){
 }
 
 static void __exit elevator_exit(void){
+    kthread_stop(elevator->kthread);
+
     struct list_head *temp;
 	struct list_head *dummy;
 	Passenger *p;
