@@ -7,6 +7,7 @@
 #include <linux/list.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/mutex.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Group #");
@@ -41,6 +42,7 @@ struct Elevator{
     int current_load, current_floor, current_destination;
     struct list_head passengers_on_board;
     struct task_struct *kthread;
+    struct mutex mutex;
 };
 
 typedef struct passenger{
@@ -102,7 +104,7 @@ int issue_request(int start_floor, int destination_floor, int type){
             return 1;
     }
 
-    // Initialize passenger object
+    // Initialize passenger
     struct Passenger *passenger = kmalloc(sizeof(struct Passenger), GFP_KERNEL);
     passenger.start = start_floor + 1;
     passenger.destination = destination_floor - 1;
@@ -139,22 +141,25 @@ void elevator_run(void){
                 else
                     elevator.state = IDLE;
             }
-    }
+        }
     }
 }
 
 void moveElevator(void){
     if(elevator.current_floor == elevator.current_destination){
+        if(passengers_waiting > 0)
             getNewDestination();
+        else
+            elevator.state = IDLE;
     }
     else if(elevator.current_floor < elevator.current_destination){
-        ssleep(2);
         elevator.state = UP;
+        ssleep(2);
         elevator.current_floor += 1;
     }
     else if(elevator.current_floor > elevator.current_destination){
+        elevator.state = DOWN;
         ssleep(2);
-        elevator.state = DOWN
         elevator.current_floor -= 1;
     }
 }
@@ -181,9 +186,8 @@ void service_floor(void){
             p = list_entry(temp, Passenger, list);
 	
             if(p.destination == elevator.current_floor){
-                ssleep(1);
-
                 elevator.state = LOADING;
+                ssleep(1);
 
                 num_passengers--;
                 num_serviced++;
@@ -203,8 +207,8 @@ void service_floor(void){
             p = list_entry(temp, Passenger, list);
 
             if(num_passengers < 5 && elevator.current_load + p.weight <= MAX_LOAD){
-                ssleep(1);
                 elevator.state = LOADING;
+                ssleep(1);
 
                 num_waiting --;
                 num_passengers ++;
@@ -253,6 +257,8 @@ static int __init elevator_init(void){
     elevator.state = OFFLINE;
     INIT_LIST_HEADS(&elevator.passengers_on_board);
 
+    mutex_init(&elevator.mutex);
+
     elevator->thread = kthread_run(elevator_run, parm, "elevator thread", parm->id);
 
     for(int i=0; i<NUM_FLOORS; i++){
@@ -298,6 +304,7 @@ static void __exit elevator_exit(void){
     }
 
     proc_remove(proc_entry);
+    mutex_destroy(&elevator.mutex);
 }
 
 module_init(elevator_init);
