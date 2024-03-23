@@ -58,7 +58,7 @@ struct Floor{
 static struct proc_dir_entry* elevator_entry;
 
 struct Elevator elevator;
-struct Floor floors[6];
+struct Floor floors[NUM_FLOORS];
 
 static int num_passengers;
 static int num_waiting;
@@ -114,6 +114,8 @@ int issue_request(int start_floor, int destination_floor, int type){
     list_add_tail(&passenger->list, &floors[start_floor - 1].passengers_waiting);
 
     num_waiting ++;
+
+    return 0;
 }      
 
 int stop_elevator(void){
@@ -259,6 +261,7 @@ static int __init elevator_init(void){
 
     mutex_init(&elevator.mutex);
 
+    // Needs to be modified
     elevator->thread = kthread_run(elevator_run, parm, "elevator thread", parm->id);
 
     for(int i=0; i<NUM_FLOORS; i++){
