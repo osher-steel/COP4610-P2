@@ -37,7 +37,11 @@ int issue_request(int start_floor, int destination_floor, int type);
 int stop_elevator(void); 
 void moveElevator(void);
 
-typedef enum {OFFLINE, IDLE, LOADING, UP, DOWN} Elevator_state;
+extern int (*STUB_start_elevator)(void);
+extern int (*STUB_issue_request)(int,int,int);
+extern int (*STUB_stop_elevator)(void);
+
+enum Elevator_state {OFFLINE, IDLE, LOADING, UP, DOWN};
 
 struct Elevator{
     enum Elevator_state state;
@@ -50,7 +54,7 @@ struct Elevator{
 typedef struct passenger{
     int destination, weight, start;
     struct list_head list;
-    char[2] str;
+    char str[2];
 } Passenger;
 
 struct Floor{
@@ -74,7 +78,9 @@ static int num_serviced;
 static bool turn_off;
 
 int start_elevator(void){
+    //mutex_lock(&elevator.mutex);
     if(elevator.state != OFFLINE){
+        //mutex_lock(&elevator.mutex);
         return 1;
     }
 
@@ -83,34 +89,37 @@ int start_elevator(void){
     elevator.state = IDLE;
 
     turn_off = false;
-
+    //mutex_unlock(&elevator.mutex);
     return 0;
     // add -ERRORNUM and -ENOMEM
 }
 
 int issue_request(int start_floor, int destination_floor, int type){
+    //mutex_lock(&elevator.mutex);
     if(turn_off || elevator.state == OFFLINE || start_floor < 1 || start_floor > NUM_FLOORS || destination_floor < 1 || destination_floor > NUM_FLOORS )
+        //mutex_unlock(&elevator.mutex);
         return 1;
     
+
     int weight;
-    char type;
+    char initial;
 
     switch(type){
         case PART_TIME:
             weight = 10;
-            type = P;
+            initial = 'P';
             break;
         case LAWYER:
             weight = 15;
-            type = L;
+            initial = 'L';
             break;
         case BOSS:
             weight = 20;
-            type = B;
+            initial = 'B';
             break;
         case VISITOR:
             weight = 5;
-            type = V;
+            initial = 'V';
             break;
         default:
             return 1;
@@ -122,28 +131,34 @@ int issue_request(int start_floor, int destination_floor, int type){
     passenger->start = start_floor + 1;
     passenger->destination = destination_floor - 1;
     passenger->weight = weight;
-    sprintf(passenger->str, type);
-    sprintf(passenger->str, "%d", destination); 
+
+    sprintf(passenger->str, initial);
+    sprintf(passenger->str, "%d", destination_floor); 
 
     // Add passenger to floor list
     list_add_tail(&passenger->list, &floors[start_floor - 1].passengers_waiting);
 
     num_waiting ++;
 
+    //mutex_unlock(&elevator.mutex);
     return 0;
 }      
 
 int stop_elevator(void){
+    //mutex_lock(&elevator.mutex);
     if(elevator.state == OFFLINE || turn_off)
+        //mutex_unlock(&elevator.mutex);
         return 1;
     
     turn_off = true;
+    //mutex_unlock(&elevator.mutex);
     return 0;
 }
 
 
 int elevator_run(void *data){
     while(!kthread_should_stop()){
+        mutex_lock(&elevator.mutex);
         if(elevator.state != OFFLINE){
             if(num_waiting > 0){
                 if(elevator.state == IDLE)
@@ -159,11 +174,13 @@ int elevator_run(void *data){
                     elevator.state = IDLE;
             }
         }
+        //mutex_unlock(&elevator.mutex);
     }
     return 0;
 }
 
 void moveElevator(void){
+    //mutex_lock(&elevator.mutex);
     if(elevator.current_floor == elevator.current_destination){
         if(num_waiting > 0)
             getNewDestination();
@@ -180,20 +197,25 @@ void moveElevator(void){
         ssleep(2);
         elevator.current_floor -= 1;
     }
+    //mutex_unlock(&elevator.mutex);
 }
 
 void getNewDestination(void){
     // Loop through floors starting at the current floor and going up
+    //mutex_lock(&elevator.mutex);
     for(int i=0; i< NUM_FLOORS; i++){
         // If the floor has passengers waiting make it new destination floor
         if(!list_empty(&floors[(i+elevator.current_floor) % NUM_FLOORS].passengers_waiting)){
             elevator.current_destination = (i+elevator.current_floor) % NUM_FLOORS;
+            //mutex_unlock(&elevator.mutex);
             return;
         }
     }
+    //mutex_unlock(&elevator.mutex);
 }
 
 void service_floor(void){
+    //mutex_lock(&elevator.mutex);
 	struct list_head *temp;
 	struct list_head *dummy;
 	Passenger *p;
@@ -241,20 +263,43 @@ void service_floor(void){
             }
         }
     }
+    //mutex_unlock(&elevator.mutex);
 }
 
 
 static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count, loff_t *ppos){
     char buf[10000];
     int len = 0;
+    char *state="";
+    switch(elevator.state){
+        case OFFLINE:
+            state = "OFFLINE";
+            break;
+        case IDLE:
+            state = "IDLE";
+            break;
+        case LOADING:
+            state = "LOADING";
+            break;
+        case UP:
+            state = "UP";
+            break;
+        case DOWN:
+            state = "DOWN";
+            break;
+        default:
+            state = "unknown";
+
+    }
+    
 
     len = sprintf(buf, "Elevator state:");
-    len += sprintf(buf + len, elevator.state);
+    len += sprintf(buf + len, state);
     len += sprintf(buf + len, "\nCurrent floor: ");
     len += sprintf(buf + len, "%d", elevator.current_floor);
     len += sprintf(buf + len, "\nCurrent load: ");
     len += sprintf(buf + len, "%d", elevator.current_load);
-    len += sprintf(buf + len, "\nElevator status: ")
+    len += sprintf(buf + len, "\nElevator status: ");
 
     if(!list_empty(&elevator.passengers_on_board)){
         struct list_head *temp;
@@ -262,7 +307,7 @@ static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count,
 
         list_for_each(temp,&elevator.passengers_on_board){
             passenger = list_entry(temp, Passenger,list);
-            len += sprintf(buf + len, passenger.type);
+            len += sprintf(buf + len, passenger->str);
         }
     }
 
@@ -270,10 +315,11 @@ static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count,
         len += sprintf(buf + len, "\n");
         len += sprintf(buf + len, "[");
 
-         if(i == current_floor)
-            len += sprintf(buf + len, "*");
+         if(i == elevator.current_floor)
+            len += sprintf(buf + len, "*]");
         else
-            len += sprintf(buf + len, " ");
+            len += sprintf(buf + len, " ]");
+        
         
         len += sprintf(buf + len, " Floor ");
         len += sprintf(buf + len, "%d", i+1);
@@ -286,7 +332,7 @@ static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count,
 
             list_for_each(temp,&floors[i].passengers_waiting){
                 passenger = list_entry(temp, Passenger,list);
-                len += sprintf(buf + len, passenger.type);
+                len += sprintf(buf + len, passenger->str);
             }
         }
     }
