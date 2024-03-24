@@ -26,20 +26,21 @@ MODULE_VERSION("1.0");
 #define BOSS 2
 #define VISITOR 3
 
+#define OFFLINE OFFLINE
+#define IDLE IDLE
+#define LOADING LOADING
+#define UP UP
+#define DOWN DOWN
 
 int start_elevator(void);                                                          
 int issue_request(int start_floor, int destination_floor, int type);               
 int stop_elevator(void); 
 void moveElevator(void);
 
-extern int (*STUB_start_elevator)(void);
-extern int (*STUB_issue_request)(int,int,int);
-extern int (*STUB_stop_elevator)(void);
-
-enum state {OFFLINE, IDLE, LOADING, UP, DOWN};
+typedef enum {OFFLINE, IDLE, LOADING, UP, DOWN} Elevator_state;
 
 struct Elevator{
-    enum state state;
+    enum Elevator_state state;
     int current_load, current_floor, current_destination;
     struct list_head passengers_on_board;
     struct task_struct *kthread;
@@ -49,6 +50,7 @@ struct Elevator{
 typedef struct passenger{
     int destination, weight, start;
     struct list_head list;
+    char[2] str;
 } Passenger;
 
 struct Floor{
@@ -90,21 +92,25 @@ int issue_request(int start_floor, int destination_floor, int type){
     if(turn_off || elevator.state == OFFLINE || start_floor < 1 || start_floor > NUM_FLOORS || destination_floor < 1 || destination_floor > NUM_FLOORS )
         return 1;
     
-
     int weight;
+    char type;
 
     switch(type){
         case PART_TIME:
             weight = 10;
+            type = P;
             break;
         case LAWYER:
             weight = 15;
+            type = L;
             break;
         case BOSS:
             weight = 20;
+            type = B;
             break;
         case VISITOR:
             weight = 5;
+            type = V;
             break;
         default:
             return 1;
@@ -116,6 +122,8 @@ int issue_request(int start_floor, int destination_floor, int type){
     passenger->start = start_floor + 1;
     passenger->destination = destination_floor - 1;
     passenger->weight = weight;
+    sprintf(passenger->str, type);
+    sprintf(passenger->str, "%d", destination); 
 
     // Add passenger to floor list
     list_add_tail(&passenger->list, &floors[start_floor - 1].passengers_waiting);
@@ -240,11 +248,55 @@ static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count,
     char buf[10000];
     int len = 0;
 
-    len = sprintf(buf, "Elevator state: \n");
-    len += sprintf(buf + len, "Current floor: \n");
-    len += sprintf(buf + len, "Current load: \n");
-    len += sprintf(buf + len, "Elevator status: \n");
-    // Finish the rest.
+    len = sprintf(buf, "Elevator state:");
+    len += sprintf(buf + len, elevator.state);
+    len += sprintf(buf + len, "\nCurrent floor: ");
+    len += sprintf(buf + len, "%d", elevator.current_floor);
+    len += sprintf(buf + len, "\nCurrent load: ");
+    len += sprintf(buf + len, "%d", elevator.current_load);
+    len += sprintf(buf + len, "\nElevator status: ")
+
+    if(!list_empty(&elevator.passengers_on_board)){
+        struct list_head *temp;
+        Passenger *passenger;
+
+        list_for_each(temp,&elevator.passengers_on_board){
+            passenger = list_entry(temp, Passenger,list);
+            len += sprintf(buf + len, passenger.type);
+        }
+    }
+
+    for(int i=0; i<NUM_FLOORS; i++){
+        len += sprintf(buf + len, "\n");
+        len += sprintf(buf + len, "[");
+
+         if(i == current_floor)
+            len += sprintf(buf + len, "*");
+        else
+            len += sprintf(buf + len, " ");
+        
+        len += sprintf(buf + len, " Floor ");
+        len += sprintf(buf + len, "%d", i+1);
+
+        len += sprintf(buf + len, ": ");
+
+        if(!list_empty(&floors[i].passengers_waiting)){
+            struct list_head *temp;
+            Passenger *passenger;
+
+            list_for_each(temp,&floors[i].passengers_waiting){
+                passenger = list_entry(temp, Passenger,list);
+                len += sprintf(buf + len, passenger.type);
+            }
+        }
+    }
+
+    len += sprintf(buf + len, "\nNumber of passengers: ");
+    len += sprintf(buf + len, "%d", num_passengers);
+    len += sprintf(buf + len, "\nNumber of passengers waiting: ");
+    len += sprintf(buf + len, "%d", num_waiting);
+    len += sprintf(buf + len, "\nNumber of passengers serviced :");
+    len += sprintf(buf + len, "%d", num_serviced);
 
     return simple_read_from_buffer(ubuf, count, ppos, buf, len);
 }
