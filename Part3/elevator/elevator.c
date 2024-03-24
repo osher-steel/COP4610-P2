@@ -30,6 +30,7 @@ MODULE_VERSION("1.0");
 int start_elevator(void);                                                          
 int issue_request(int start_floor, int destination_floor, int type);               
 int stop_elevator(void); 
+void moveElevator(void);
 
 extern int (*STUB_start_elevator)(void);
 extern int (*STUB_issue_request)(int,int,int);
@@ -38,7 +39,7 @@ extern int (*STUB_stop_elevator)(void);
 enum state {OFFLINE, IDLE, LOADING, UP, DOWN};
 
 struct Elevator{
-    enum state;
+    enum state state;
     int current_load, current_floor, current_destination;
     struct list_head passengers_on_board;
     struct task_struct *kthread;
@@ -54,6 +55,10 @@ struct Floor{
     int num_waiting_floor;
     struct list_head passengers_waiting;
 };
+
+void getNewDestination(void);
+void service_floor(void);
+static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count, loff_t *ppos);
 
 static struct proc_dir_entry* elevator_entry;
 
@@ -84,6 +89,7 @@ int start_elevator(void){
 int issue_request(int start_floor, int destination_floor, int type){
     if(turn_off || elevator.state == OFFLINE || start_floor < 1 || start_floor > NUM_FLOORS || destination_floor < 1 || destination_floor > NUM_FLOORS )
         return 1;
+    
 
     int weight;
 
@@ -100,15 +106,16 @@ int issue_request(int start_floor, int destination_floor, int type){
         case VISITOR:
             weight = 5;
             break;
-        case default:
+        default:
             return 1;
     }
 
     // Initialize passenger
-    struct Passenger *passenger = kmalloc(sizeof(struct Passenger), GFP_KERNEL);
-    passenger.start = start_floor + 1;
-    passenger.destination = destination_floor - 1;
-    passenger.weight = weight;
+    Passenger *passenger;
+    passenger = kmalloc(sizeof(Passenger), GFP_KERNEL);
+    passenger->start = start_floor + 1;
+    passenger->destination = destination_floor - 1;
+    passenger->weight = weight;
 
     // Add passenger to floor list
     list_add_tail(&passenger->list, &floors[start_floor - 1].passengers_waiting);
@@ -127,10 +134,10 @@ int stop_elevator(void){
 }
 
 
-void elevator_run(void){
+int elevator_run(void *data){
     while(!kthread_should_stop()){
         if(elevator.state != OFFLINE){
-            if(passengers_waiting > 0){
+            if(num_waiting > 0){
                 if(elevator.state == IDLE)
                     getNewDestination();
                 
@@ -145,11 +152,12 @@ void elevator_run(void){
             }
         }
     }
+    return 0;
 }
 
 void moveElevator(void){
     if(elevator.current_floor == elevator.current_destination){
-        if(passengers_waiting > 0)
+        if(num_waiting > 0)
             getNewDestination();
         else
             elevator.state = IDLE;
@@ -187,13 +195,13 @@ void service_floor(void){
         list_for_each_safe(temp, dummy, &elevator.passengers_on_board){
             p = list_entry(temp, Passenger, list);
 	
-            if(p.destination == elevator.current_floor){
+            if(p->destination == elevator.current_floor){
                 elevator.state = LOADING;
                 ssleep(1);
 
                 num_passengers--;
                 num_serviced++;
-                elevator.current_load -= p.weight;
+                elevator.current_load -= p->weight;
 
                 list_del(temp);	
                 kfree(p);
@@ -204,20 +212,20 @@ void service_floor(void){
     }
 
     // Check if there are any passengers waiting to board at current floor
-    if(!turn_off && !list_empty(&floors[elevator.current_floor])){
-        list_for_each_safe(temp, dummy, &floors[elevator.current_floor]){
+    if(!turn_off && !list_empty(&floors[elevator.current_floor].passengers_waiting)){
+        list_for_each_safe(temp, dummy, &floors[elevator.current_floor].passengers_waiting){
             p = list_entry(temp, Passenger, list);
 
-            if(num_passengers < 5 && elevator.current_load + p.weight <= MAX_LOAD){
+            if(num_passengers < 5 && elevator.current_load + p->weight <= MAX_LOAD){
                 elevator.state = LOADING;
                 ssleep(1);
 
                 num_waiting --;
                 num_passengers ++;
-                elevator.current_load += passenger.weight
+                elevator.current_load += p->weight;
                 
                 // Add passenger to elevator list
-                list_add_tail(&p->list, &elevator);
+                list_add_tail(&p->list, &elevator.passengers_on_board);
 
                 // Remove passenger from floor list
                 list_del(temp);	
@@ -257,16 +265,16 @@ static int __init elevator_init(void){
     }
 
     elevator.state = OFFLINE;
-    INIT_LIST_HEADS(&elevator.passengers_on_board);
+    INIT_LIST_HEAD(&elevator.passengers_on_board);
 
     mutex_init(&elevator.mutex);
 
     // Needs to be modified
-    elevator->thread = kthread_run(elevator_run, parm, "elevator thread", parm->id);
+    elevator.kthread = kthread_run(elevator_run, &elevator, "elevator thread");
 
     for(int i=0; i<NUM_FLOORS; i++){
         floors[i].num_waiting_floor = 0;
-        INIT_LIST_HEADS(&floors[i].passengers_waiting);
+        INIT_LIST_HEAD(&floors[i].passengers_waiting);
     }
 
 
@@ -278,7 +286,7 @@ static int __init elevator_init(void){
 }
 
 static void __exit elevator_exit(void){
-    kthread_stop(elevator->kthread);
+    kthread_stop(elevator.kthread);
 
     struct list_head *temp;
 	struct list_head *dummy;
@@ -295,8 +303,8 @@ static void __exit elevator_exit(void){
 
     if(num_waiting > 0){
         for(int i=0; i< NUM_FLOORS; i++){
-            if(!list_empty(&floors[elevator.current_floor])){
-                list_for_each_safe(temp, dummy, &floors[elevator.current_floor]){
+            if(!list_empty(&floors[elevator.current_floor].passengers_waiting)){
+                list_for_each_safe(temp, dummy, &floors[elevator.current_floor].passengers_waiting){
                     p = list_entry(temp, Passenger, list);
 
                     list_del(temp);	
@@ -306,7 +314,7 @@ static void __exit elevator_exit(void){
         }
     }
 
-    proc_remove(proc_entry);
+    remove_proc_entry(ENTRY_NAME, NULL);
     mutex_destroy(&elevator.mutex);
 }
 
