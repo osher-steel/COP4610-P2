@@ -165,21 +165,32 @@ int stop_elevator(void){
 
 int elevator_run(void *data){
     while(!kthread_should_stop()){
+        printk(KERN_INFO "kthread");
         mutex_lock(&elevator.mutex);
         if(elevator.state != OFFLINE){
+            printk(KERN_INFO "online");
             if(num_waiting > 0){
+                printk(KERN_INFO "people waiting");
                 if(elevator.state == IDLE){
                     printk(KERN_INFO "Getting new destination");
                     getNewDestination();
+                    printk(KERN_INFO "got new destination");
                 }
+
                 service_floor();
                 moveElevator();
+                printk(KERN_INFO "floor and elevator moved");
             }
             else{
-                if(turn_off)
+                if(turn_off){
+                
+                    printk(KERN_INFO "offline");
                     elevator.state = OFFLINE;
-                else
+                    }
+                else{
+                    printk(KERN_INFO "idle");
                     elevator.state = IDLE;
+                }
             }
         }
         //mutex_unlock(&elevator.mutex);
@@ -189,6 +200,7 @@ int elevator_run(void *data){
 
 void moveElevator(void){
     //mutex_lock(&elevator.mutex);
+    printk(KERN_INFO "moving the elevator");
     if(elevator.current_floor == elevator.current_destination){
         if(num_waiting > 0)
             getNewDestination();
@@ -211,14 +223,20 @@ void moveElevator(void){
 void getNewDestination(void){
     // Loop through floors starting at the current floor and going up
     //mutex_lock(&elevator.mutex);
+    printk(KERN_INFO "getting new destination");
     for(int i=0; i< NUM_FLOORS; i++){
         // If the floor has passengers waiting make it new destination floor
         if(!list_empty(&floors[(i+elevator.current_floor) % NUM_FLOORS].passengers_waiting)){
             elevator.current_destination = (i+elevator.current_floor) % NUM_FLOORS;
+            printk(KERN_INFO "new destination");
             //mutex_unlock(&elevator.mutex);
             return;
         }
+
     }
+    printk(KERN_INFO "no destination found");
+    return;
+
     //mutex_unlock(&elevator.mutex);
 }
 
