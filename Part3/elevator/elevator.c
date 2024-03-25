@@ -212,6 +212,7 @@ void moveElevator(void){
     printk(KERN_INFO "moving elevator");
     if(elevator.current_floor == elevator.current_destination && stayOrMove(elevator.current_floor) == 1){
         if(num_waiting > 0)
+            printk(KERN_INFO "looking for new destination");
             getNewDestination();
         else
             elevator.state = IDLE;
@@ -226,6 +227,7 @@ void moveElevator(void){
         ssleep(2);
         elevator.current_floor -= 1;
     }
+    printk(KERN_INFO "exiting move elevator");
     //mutex_unlock(&elevator.mutex);
 }
 
@@ -298,6 +300,7 @@ void service_floor(void){
                 // Remove passenger from floor list
                 list_del(temp);	
                 kfree(p);
+                printk(KERN_INFO "exiting service floor");
             }
         }
     }
