@@ -187,6 +187,7 @@ int elevator_run(void *data){
                 }
             }
         }
+        ssleep(1);
         //mutex_unlock(&elevator.mutex);
     }
     return 0;
@@ -210,12 +211,14 @@ int stayOrMove(int curFloor){
 void moveElevator(void){
     //mutex_lock(&elevator.mutex);
     printk(KERN_INFO "moving elevator");
-    if(elevator.current_floor == elevator.current_destination && stayOrMove(elevator.current_floor) == 1){
-        if(num_waiting > 0)
+    if((elevator.current_floor == elevator.current_destination) && (stayOrMove(elevator.current_floor) == 0)){
+        if(num_waiting > 0){
             printk(KERN_INFO "looking for new destination");
             getNewDestination();
-        else
+        }
+        else{
             elevator.state = IDLE;
+        }
     }
     else if(elevator.current_floor < elevator.current_destination){
         elevator.state = UP;
