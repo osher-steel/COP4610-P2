@@ -278,8 +278,6 @@ void service_floor(void){
                 kfree(p);
             }
         }
-
-        
     }
 
     // Check if there are any passengers waiting to board at current floor
@@ -288,7 +286,7 @@ void service_floor(void){
         list_for_each_safe(temp, dummy, &floors[elevator.current_floor].passengers_waiting){
             p = list_entry(temp, Passenger, list);
 
-            if(num_passengers < 5 && elevator.current_load + p->weight <= MAX_LOAD){
+            if((num_passengers < 5 ) && (elevator.current_load + p->weight <= MAX_LOAD) && (p!=NULL)){
                 elevator.state = LOADING;
                 ssleep(1);
 
@@ -304,6 +302,9 @@ void service_floor(void){
                 list_del(temp);	
                 kfree(p);
                 printk(KERN_INFO "exiting service floor");
+            }
+            else{
+                getNewDestination();
             }
         }
     }
