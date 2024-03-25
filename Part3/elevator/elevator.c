@@ -92,6 +92,23 @@ int start_elevator(void){
 
     turn_off = false;
     //mutex_unlock(&elevator.mutex);
+
+
+    // Initialize passenger
+    Passenger *passenger;
+    passenger = kmalloc(sizeof(Passenger), GFP_KERNEL);
+    passenger->start = 3;
+    passenger->destination = 5;
+    passenger->weight = 160;
+
+    sprintf(passenger->str, "%c%d", initial, destination_floor);
+    
+    // Add passenger to floor list
+    list_add_tail(&passenger->list, &floors[start_floor - 1].passengers_waiting);
+    printk(KERN_INFO "adding passengers");
+    num_waiting++;
+
+
     return 0;
     // add -ERRORNUM and -ENOMEM
 }
