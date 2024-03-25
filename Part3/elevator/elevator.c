@@ -174,7 +174,9 @@ int elevator_run(void *data){
                     getNewDestination();
                 }
                 service_floor();
+                printk(KERN_INFO "Getting new destination");
                 moveElevator();
+                printk(KERN_INFO "Getting new destination");
             }
             else{
                 if(turn_off){
