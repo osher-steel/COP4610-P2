@@ -95,10 +95,13 @@ int start_elevator(void){
 }
 
 int issue_request(int start_floor, int destination_floor, int type){
+    printk(KERN_INFO "Inside Issue request");
     //mutex_lock(&elevator.mutex);
-    if(turn_off || elevator.state == OFFLINE || start_floor < 1 || start_floor > NUM_FLOORS || destination_floor < 1 || destination_floor > NUM_FLOORS )
+    /*if(turn_off || elevator.state == OFFLINE || start_floor < 1 || start_floor > NUM_FLOORS || destination_floor < 1 || destination_floor > NUM_FLOORS )
         //mutex_unlock(&elevator.mutex);
+        printk(KERN_INFO "returning early");
         return 1;
+        */
     
 
     int weight;
@@ -126,19 +129,24 @@ int issue_request(int start_floor, int destination_floor, int type){
     }
 
     // Initialize passenger
+    printk(KERN_INFO "test");
     Passenger *passenger;
+    printk(KERN_INFO "test1");
     passenger = kmalloc(sizeof(Passenger), GFP_KERNEL);
+    printk(KERN_INFO "test2");
     passenger->start = start_floor + 1;
     passenger->destination = destination_floor - 1;
     passenger->weight = weight;
+    printk(KERN_INFO "test3");
 
-    sprintf(passenger->str, initial);
-    sprintf(passenger->str, "%d", destination_floor); 
-
+    sprintf(passenger->str, "%c%d", initial, destination_floor);
+    printk(KERN_INFO "test4");
+    
     // Add passenger to floor list
+    printk(KERN_INFO "test5");
     list_add_tail(&passenger->list, &floors[start_floor - 1].passengers_waiting);
-
-    num_waiting ++;
+    printk(KERN_INFO "adding passengers");
+    num_waiting++;
 
     //mutex_unlock(&elevator.mutex);
     return 0;
@@ -155,15 +163,15 @@ int stop_elevator(void){
     return 0;
 }
 
-
 int elevator_run(void *data){
     while(!kthread_should_stop()){
         mutex_lock(&elevator.mutex);
         if(elevator.state != OFFLINE){
             if(num_waiting > 0){
-                if(elevator.state == IDLE)
+                if(elevator.state == IDLE){
+                    printk(KERN_INFO "Getting new destination");
                     getNewDestination();
-                
+                }
                 service_floor();
                 moveElevator();
             }
@@ -233,7 +241,7 @@ void service_floor(void){
                 num_serviced++;
                 elevator.current_load -= p->weight;
 
-                list_del(temp);	
+                list_del(temp);
                 kfree(p);
             }
         }
@@ -250,8 +258,8 @@ void service_floor(void){
                 elevator.state = LOADING;
                 ssleep(1);
 
-                num_waiting --;
-                num_passengers ++;
+                num_waiting--;
+                num_passengers++;
                 elevator.current_load += p->weight;
                 
                 // Add passenger to elevator list
@@ -270,7 +278,7 @@ void service_floor(void){
 static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count, loff_t *ppos){
     char buf[10000];
     int len = 0;
-    char *state="";
+    const char *state="";
     switch(elevator.state){
         case OFFLINE:
             state = "OFFLINE";
@@ -315,7 +323,7 @@ static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count,
         len += sprintf(buf + len, "\n");
         len += sprintf(buf + len, "[");
 
-         if(i == elevator.current_floor)
+         if(i == elevator.current_floor-1)
             len += sprintf(buf + len, "*]");
         else
             len += sprintf(buf + len, " ]");
