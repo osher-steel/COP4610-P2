@@ -194,10 +194,13 @@ int elevator_run(void *data){
 int stayOrMove(int curFloor){
     struct list_head *temp;
     struct list_head *dummy;
+    Passenger *p;
     list_for_each_safe(temp, dummy, &elevator.passengers_on_board){
         p = list_entry(temp, Passenger, list);
-        if(p->destination == curFloor){
-            return 1;
+        if(p!=NULL){
+            if(p->destination == curFloor){
+                return 1;
+            }
         }
     }
     return 0;
