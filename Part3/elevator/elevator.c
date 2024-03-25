@@ -266,7 +266,7 @@ void service_floor(void){
         list_for_each_safe(temp, dummy, &elevator.passengers_on_board){
             p = list_entry(temp, Passenger, list);
 	
-            if(p->destination == elevator.current_floor){
+            if((p->destination == elevator.current_floor)&& (p!=NULL)){
                 elevator.state = LOADING;
                 printk(KERN_INFO "Loading status");
 
