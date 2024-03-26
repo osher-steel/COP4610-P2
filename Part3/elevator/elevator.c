@@ -176,6 +176,45 @@ int stayOrMove(int curFloor){
     }
     return 0;
 }
+/*
+int elevator_run(void *data){
+    while(!kthread_should_stop()){
+        //mutex_lock(&elevator.mutex);
+        if(elevator.state != OFFLINE){
+            if(num_waiting > 0){
+                printk(KERN_INFO "passengers waiting");
+                service_floor();
+                if(elevator.state == IDLE || stayOrMove(elevator.current_floor) == 0){
+                    printk(KERN_INFO "Getting new destination");
+                    getNewDestination();
+                    moveElevator();
+                }
+                printk(KERN_INFO "Getting new destination");
+                
+                printk(KERN_INFO "Getting new destination");
+            }
+            else{
+                if(turn_off){
+                    elevator.state = OFFLINE;
+                    printk(KERN_INFO "Going offline");
+                }
+                else{
+                    elevator.state = IDLE;
+                    printk(KERN_INFO "going idle");
+                }
+            }
+        }
+        ssleep(1);
+        //mutex_unlock(&elevator.mutex);
+    }
+    return 0;
+}
+	*/
+
+
+
+
+
 int elevator_run(void *data){
     while(!kthread_should_stop()){
         //mutex_lock(&elevator.mutex);
