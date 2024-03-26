@@ -8,7 +8,7 @@
 #include <linux/kthread.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
-
+//THIS IS THE REAL ELEVATOR
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Group #21");
 MODULE_DESCRIPTION("Elevator Module");
@@ -152,7 +152,7 @@ int issue_request(int start_floor, int destination_floor, int type){
     //add passengers to list of passengers waiting
     list_add_tail(&passenger->list, &floors[start_floor - 1].passengers_waiting);
     num_waiting++;//new passenger weighting
-
+    floors[passenger->start].num_waiting_floor += 1;
     mutex_unlock(&elevator.mutex);
     return 0;
 }      
@@ -208,6 +208,7 @@ int elevator_run(void *data) {
                             elevator.current_load += passenger->weight;//add cur pass weight
                             num_waiting--;//remove weighter
                             num_passengers++;//add elev pass
+                            floors[elevator.current_floor -1].num_waiting_floor -= 1;
                             if (num_passengers == MAX_PASSENGERS) break;//cant accept anymore, break from loop
                         }
                     }
@@ -266,6 +267,7 @@ void service_floor(void) {
             elevator.current_load -= passenger->weight;//loss weight
             list_del(temp);//free up space
             kfree(passenger);
+            
             num_passengers--;//decrement variables
             num_serviced++;
         }
