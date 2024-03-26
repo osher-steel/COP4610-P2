@@ -10,7 +10,7 @@
 #include <linux/mutex.h>
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Group #");
+MODULE_AUTHOR("Group #21");
 MODULE_DESCRIPTION("Elevator Module");
 MODULE_VERSION("1.0");
 
@@ -83,8 +83,9 @@ int start_elevator(void){
         mutex_lock(&elevator.mutex);
         return 1;
     }
-
-    elevator.current_floor = 1;
+    if(elevator.current_floor > 0) {}
+    else
+        elevator.current_floor = 1;
     elevator.current_load = 0;
     elevator.state = IDLE;
 
@@ -97,11 +98,12 @@ int start_elevator(void){
 int issue_request(int start_floor, int destination_floor, int type){
     printk(KERN_INFO "Inside Issue request");
     mutex_lock(&elevator.mutex);
-    /*if(turn_off || elevator.state == OFFLINE || start_floor < 1 || start_floor > NUM_FLOORS || destination_floor < 1 || destination_floor > NUM_FLOORS )
+    if(turn_off || elevator.state == OFFLINE || start_floor < 1 || start_floor > NUM_FLOORS || destination_floor < 1 || destination_floor > NUM_FLOORS )
+    {
         mutex_unlock(&elevator.mutex);
         printk(KERN_INFO "returning early");
         return 1;
-        */
+    }
     
 
     int weight;
@@ -155,8 +157,10 @@ int issue_request(int start_floor, int destination_floor, int type){
 int stop_elevator(void){
     mutex_lock(&elevator.mutex);
     if(elevator.state == OFFLINE || turn_off)
+    {
         mutex_unlock(&elevator.mutex);
         return 1;
+    }
     
     turn_off = true;
     mutex_unlock(&elevator.mutex);
@@ -167,7 +171,7 @@ int elevator_run(void *data) {
     while (!kthread_should_stop()) {
         if (turn_off && list_empty(&elevator.passengers_on_board) && elevator.state != OFFLINE) {
             elevator.state = OFFLINE;
-            break;
+            
         }
 
         mutex_lock(&elevator.mutex);
@@ -300,7 +304,7 @@ static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count,
     }
     
 
-    len = sprintf(buf, "Elevator state:");
+    len = sprintf(buf, "Elevator state: ");
     len += sprintf(buf + len, state);
     len += sprintf(buf + len, "\nCurrent floor: ");
     len += sprintf(buf + len, "%d", elevator.current_floor);
