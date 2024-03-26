@@ -19,7 +19,7 @@ MODULE_VERSION("1.0");
 #define PARENT NULL
 
 #define NUM_FLOORS 5
-#define MAX_LOAD 700
+#define MAX_LOAD 70
 #define MAX_PASSENGERS 5
 #define PART_TIME 0 
 #define LAWYER 1
