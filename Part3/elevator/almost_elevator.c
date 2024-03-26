@@ -324,6 +324,7 @@ static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count,
         list_for_each(temp,&elevator.passengers_on_board){//list passenger and type, lawyer, boss, etc
             passenger = list_entry(temp, Passenger,list);
             len += sprintf(buf + len, passenger->str);
+		len += sprintf(buf + len, " ");
         }
     }
 
@@ -340,7 +341,7 @@ static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count,
         len += sprintf(buf + len, "%d", i+1);
 
         len += sprintf(buf + len, ": ");
-
+	len += sprintf(buf + len, "%d ", floors[i].num_waiting_floor);
         if(!list_empty(&floors[i].passengers_waiting)){//print passengers waiting
             struct list_head *temp;
             Passenger *passenger;
@@ -348,6 +349,7 @@ static ssize_t elevator_read(struct file *file, char __user *ubuf, size_t count,
             list_for_each(temp,&floors[i].passengers_waiting){
                 passenger = list_entry(temp, Passenger,list);
                 len += sprintf(buf + len, passenger->str);
+		len += sprintf(buf + len, " ");
             }
         }
     }
