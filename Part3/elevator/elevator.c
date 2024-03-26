@@ -134,7 +134,7 @@ int issue_request(int start_floor, int destination_floor, int type){
     
     passenger = kmalloc(sizeof(Passenger), GFP_KERNEL);
     
-    passenger->start = start_floor + 1;
+    passenger->start = start_floor - 1;
     passenger->destination = destination_floor - 1;
     passenger->weight = weight;
     
@@ -162,14 +162,27 @@ int stop_elevator(void){
     //mutex_unlock(&elevator.mutex);
     return 0;
 }
-
+int stayOrMove(int curFloor){
+    struct list_head *temp;
+    struct list_head *dummy;
+    Passenger *p;
+    list_for_each_safe(temp, dummy, &elevator.passengers_on_board){
+        p = list_entry(temp, Passenger, list);
+        if(p!=NULL){
+            if(p->destination == curFloor){
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
 int elevator_run(void *data){
     while(!kthread_should_stop()){
         //mutex_lock(&elevator.mutex);
         if(elevator.state != OFFLINE){
             if(num_waiting > 0){
                 printk(KERN_INFO "passengers waiting");
-                if(elevator.state == IDLE){
+                if(elevator.state == IDLE || stayOrMove(elevator.current_floor) == 0){
                     printk(KERN_INFO "Getting new destination");
                     getNewDestination();
                 }
@@ -194,20 +207,7 @@ int elevator_run(void *data){
     }
     return 0;
 }
-int stayOrMove(int curFloor){
-    struct list_head *temp;
-    struct list_head *dummy;
-    Passenger *p;
-    list_for_each_safe(temp, dummy, &elevator.passengers_on_board){
-        p = list_entry(temp, Passenger, list);
-        if(p!=NULL){
-            if(p->destination == curFloor){
-                return 1;
-            }
-        }
-    }
-    return 0;
-}
+
 
 
 void moveElevator(void){
